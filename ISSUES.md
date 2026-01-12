@@ -10,6 +10,8 @@
 ## Game Logic
 
 - Improve Tetromino roatation logic (push away from walls instead of not rotating)
+- Improve gameover logic
+- freezing at the top of the board seems buggy
 
 ## Missing Features
 
