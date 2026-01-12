@@ -15,31 +15,6 @@ use ratatui::{DefaultTerminal, Frame};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-fn main2() {
-    let mut game = Tetris::new(10, 20);
-    game.start();
-    let mut i = 0;
-    println!("Hello, ratatetris!");
-    while game.is_running() {
-        game.step();
-        println!();
-        println!("i = {i}");
-        println!();
-        game.print();
-
-        if rand::random_bool(0.5) {
-            game.move_tet(Some(lmtetris::Direction::Left), None);
-        } else {
-            game.move_tet(Some(lmtetris::Direction::Right), None);
-        }
-        i += 1;
-        if i > 500 {
-            game.stop();
-        }
-    }
-    println!("Game Over!");
-}
-
 fn main() -> Result<()> {
     color_eyre::install()?;
     ratatui::run(|terminal| App::new().run(terminal))
