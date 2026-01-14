@@ -1,15 +1,10 @@
 use crate::lmtetris::Tetris;
 
 pub mod lmtetris;
+pub mod lmtetris_ui;
 
 use color_eyre::Result;
 use crossterm::event::{self, KeyCode, KeyEventKind};
-use ratatui::layout::{Constraint, Layout, Position};
-use ratatui::style::{Color, Modifier, Style, Stylize};
-use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::canvas::{Canvas, Rectangle};
-use ratatui::widgets::{Block, Paragraph};
-
 use ratatui::{DefaultTerminal, Frame};
 
 use std::thread::sleep;
@@ -87,65 +82,7 @@ impl App {
             terminal.draw(|frame| self.render(frame))?;
         }
     }
-
     fn render(&self, frame: &mut Frame) {
-        let layout = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]);
-        let [header, game_area] = frame.area().layout(&layout);
-
-        let (msg, style) = (
-            vec![
-                "Press ".into(),
-                "q".bold(),
-                " to exit, ".into(),
-                "e".bold(),
-                " to start editing.".bold(),
-            ],
-            Style::default().add_modifier(Modifier::RAPID_BLINK),
-        );
-        let text = Text::from(Line::from(msg)).patch_style(style);
-        let help_message = Paragraph::new(text);
-        frame.render_widget(help_message, header);
-        let game_view = Canvas::default()
-            .block(Block::bordered().title("LM Tetris"))
-            .x_bounds([0.0, (self.game.dimensions().0 as f64)])
-            .y_bounds([0.0, (self.game.dimensions().1 as f64)])
-            .paint(|c| {
-                for x in 0..self.game.dimensions().0 {
-                    for y in 0..self.game.dimensions().1 {
-                        c.draw(&Rectangle {
-                            x: x as f64 + 0.1,
-                            y: (self.game.dimensions().1 - y) as f64 + 0.1,
-                            width: 0.8,
-                            height: 0.8,
-                            color: Color::Indexed(self.game.tile_color(x, y).c),
-                        });
-                    }
-                }
-                let tet_preview = self.game.get_tetromino_preview();
-                for p in tet_preview.points() {
-                    let x = p.x;
-                    let y = p.y;
-                    c.draw(&Rectangle {
-                        x: x as f64 + 0.1,
-                        y: (self.game.dimensions().1 - y) as f64 + 0.1,
-                        width: 0.8,
-                        height: 0.8,
-                        color: Color::Indexed(tet_preview.color.c),
-                    })
-                }
-                let tet = self.game.get_tetromino();
-                for p in tet.points() {
-                    let x = p.x;
-                    let y = p.y;
-                    c.draw(&Rectangle {
-                        x: x as f64 + 0.1,
-                        y: (self.game.dimensions().1 - y) as f64 + 0.1,
-                        width: 0.8,
-                        height: 0.8,
-                        color: Color::Indexed(tet.color.c),
-                    })
-                }
-            });
-        frame.render_widget(game_view, game_area);
+        lmtetris_ui::Ui::render(&self.game, frame);
     }
 }
