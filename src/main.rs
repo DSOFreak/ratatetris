@@ -4,10 +4,9 @@ pub mod lmtetris;
 pub mod lmtetris_ui;
 
 use color_eyre::Result;
-use crossterm::event::{self, KeyCode, KeyEventKind};
+use crossterm::event::{self, KeyCode};
 use ratatui::{DefaultTerminal, Frame};
 
-use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 fn main() -> Result<()> {
@@ -33,10 +32,6 @@ impl App {
 
     fn move_right(&mut self) {
         self.game.move_tet(Some(lmtetris::Direction::Right), None);
-    }
-
-    fn rotate_left(&mut self) {
-        self.game.move_tet(None, Some(lmtetris::Direction::Left));
     }
 
     fn rotate_right(&mut self) {
@@ -66,8 +61,18 @@ impl App {
                     KeyCode::Up => {
                         self.rotate_right();
                     }
+                    KeyCode::Down => {
+                        self.game.step();
+                    }
                     KeyCode::Char(' ') => {
                         self.game.rush();
+                    }
+                    KeyCode::Char('p') => {
+                        if self.game.is_running() {
+                            self.game.pause();
+                        } else {
+                            self.game.start();
+                        }
                     }
                     KeyCode::Char('q') => {
                         return Ok(());

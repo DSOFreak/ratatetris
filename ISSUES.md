@@ -2,12 +2,9 @@
 
 ## Graphics & Sound
 
-- Improve rendering of blocks
 - Add sound...
-- Add textbox for instructions
-- Make the preview Tetromino a lighter color...
-- Force the correct aspect ratio
-- ...
+- Add menu screen
+- Add remove line animation
 
 ## Game Logic
 
@@ -17,11 +14,12 @@
 
 ## Missing Features
 
-- Manual Step forward (Down arrow)
 - Level Progression
 - Highscore
 
 ## Other
 
 - Check if some "smart"-shuffle algorithem is used in the original
+  - Yes modern tetris apperently they use a "7-Bag Randomizer" -> I want that too!
+  - The original is truly random
 - Code cleanup

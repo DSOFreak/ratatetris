@@ -1,8 +1,6 @@
 use std::cmp::Eq;
 use std::ops::Add;
 
-use ratatui::style::palette::material::YELLOW;
-
 const TETS: [[Point; 4]; 7] = [I, J, L, O, S, T, Z];
 
 const I: [Point; 4] = [
@@ -69,44 +67,6 @@ impl Point {
     fn from(x: i32, y: i32) -> Self {
         Point { x, y }
     }
-    fn rotate_around_quarter(&mut self, orig: &Point, dir: &Direction) {
-        let mut p_relative = *self;
-        match dir {
-            Direction::Left => {
-                if p_relative.x > 0 {
-                    if p_relative.y > 0 {
-                        p_relative.x = -p_relative.x;
-                    } else {
-                        p_relative.y = -p_relative.y;
-                    }
-                } else {
-                    if p_relative.y > 0 {
-                        p_relative.y = -p_relative.y;
-                    } else {
-                        p_relative.x = -p_relative.x;
-                    }
-                }
-            }
-            Direction::Right => {
-                if p_relative.x > 0 {
-                    if p_relative.y > 0 {
-                        p_relative.y = -p_relative.y;
-                    } else {
-                        p_relative.x = -p_relative.x;
-                    }
-                } else {
-                    if p_relative.y > 0 {
-                        p_relative.x = -p_relative.x;
-                    } else {
-                        p_relative.y = -p_relative.x;
-                    }
-                }
-            }
-            _ => (),
-        }
-        *self = p_relative;
-    }
-
     fn mov(&mut self, dir: &Direction) {
         match dir {
             Direction::Left => *self = *self + (-1, 0),
@@ -261,7 +221,7 @@ impl Tetromino {
     pub fn points(&self) -> [Point; 4] {
         let mut tet = TETS[self.variant.to_index()];
         for p in &mut tet {
-            let p_prev = p.clone();
+            let p_prev = *p;
             match self.rotation {
                 Rotation::Deg0 => (),
                 Rotation::Deg90 => {
@@ -424,7 +384,7 @@ impl Tetris {
     pub fn start(&mut self) {
         self.state = GameState::Running
     }
-    pub fn stop(&mut self) {
+    pub fn pause(&mut self) {
         self.state = GameState::Paused
     }
     pub fn is_running(&self) -> bool {
@@ -434,6 +394,9 @@ impl Tetris {
         self.state == GameState::GameOver
     }
     pub fn move_tet(&mut self, mov: Option<Direction>, rot: Option<Direction>) -> bool {
+        if self.state != GameState::Running {
+            return false;
+        }
         let mut tet_next = self.tetromino.clone();
 
         if let Some(r) = rot {
@@ -468,6 +431,9 @@ impl Tetris {
     }
 
     pub fn rush(&mut self) {
+        if self.state != GameState::Running {
+            return;
+        }
         let mut prev = self.tetromino.clone();
         self.tetromino.fall();
         while !self.tetromino.collides(&self.board) {
