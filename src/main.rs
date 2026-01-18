@@ -1,6 +1,8 @@
 use crate::lmtetris::Tetris;
+use crate::lmtetris_sound::Sound;
 
 pub mod lmtetris;
+pub mod lmtetris_sound;
 pub mod lmtetris_ui;
 
 use color_eyre::Result;
@@ -17,12 +19,14 @@ fn main() -> Result<()> {
 /// App holds the state of the application
 struct App {
     game: Tetris,
+    sound: Sound,
 }
 
 impl App {
     fn new() -> Self {
         Self {
             game: Tetris::new(10, 20),
+            sound: Sound::new(44100),
         }
     }
 
@@ -40,6 +44,7 @@ impl App {
 
     fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         self.game.start();
+        self.sound.start();
         let tick_rate = Duration::from_millis(1000 / 2);
         let mut last_tick = Instant::now();
         loop {
@@ -54,24 +59,31 @@ impl App {
                 match key.code {
                     KeyCode::Left => {
                         self.move_left();
+                        self.sound.tmove();
                     }
                     KeyCode::Right => {
                         self.move_right();
+                        self.sound.tmove();
                     }
                     KeyCode::Up => {
                         self.rotate_right();
+                        self.sound.swirl();
                     }
                     KeyCode::Down => {
                         self.game.step();
+                        self.sound.combo();
                     }
                     KeyCode::Char(' ') => {
                         self.game.rush();
+                        self.sound.smash();
                     }
                     KeyCode::Char('p') => {
                         if self.game.is_running() {
                             self.game.pause();
+                            self.sound.pause();
                         } else {
                             self.game.start();
+                            self.sound.start();
                         }
                     }
                     KeyCode::Char('q') => {
@@ -80,6 +92,7 @@ impl App {
                     KeyCode::Enter => {
                         self.game = Tetris::new(10, 20);
                         self.game.start();
+                        self.sound.start();
                     }
                     _ => {}
                 }
