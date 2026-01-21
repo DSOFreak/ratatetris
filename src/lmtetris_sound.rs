@@ -1,10 +1,12 @@
 #![allow(clippy::precedence)]
 
+use std::collections::HashMap;
 use std::thread;
 
 use assert_no_alloc::*;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{BufferSize, FromSample, SizedSample};
+use fundsp::funutd::map3::overdrive;
 use fundsp::prelude64::*;
 use midly::{MidiMessage, Smf, Timing, TrackEventKind};
 use rand::seq;
@@ -99,10 +101,7 @@ where
     let mut sequencer = Sequencer::new(0, 1, ReplayMode::None);
     let sequencer_backend = sequencer.backend();
     let mut c = Net::wrap(Box::new(sequencer_backend));
-    let mut c = (c | var(&filter_freq)) >> lowpass_q(1.0);
-    let mut c_r = c.clone() >> chorus(12345, 0.05, 0.03, 0.3);
-    let mut c_l = c >> chorus(12345, 0.05, 0.03, 0.3);
-    let mut c = (c_l | c_r) >> reverb_stereo(30.0, 1.0, 0.9);
+    //let mut c = c >> split::<U2>() >> reverb_stereo(10.0, 0.5, 0.4);
 
     c.set_sample_rate(sample_rate);
 
@@ -121,8 +120,7 @@ where
     )?;
     stream.play()?;
     let mut iter = smf.tracks[0].iter().cycle();
-    let mut notes = [None; 12];
-    let mut id = [None; 12];
+    let mut id: HashMap<u8, _> = HashMap::new();
     loop {
         if let Ok(msg) = rx.try_recv() {
             match msg {
@@ -141,48 +139,34 @@ where
             if let TrackEventKind::Midi { channel, message } = track_event.kind {
                 if let MidiMessage::NoteOn { key, vel } = message {
                     let n_new = key.as_int();
-                    for n in &mut notes {
-                        if n.is_none() {
-                            *n = Some(n_new);
-                            break;
-                        }
+                    if *id.get(&n_new).unwrap_or(&None) == None {
+                        let mut tone = Net::wrap(Box::new(
+                            //zero() >> pluck(midi_hz(n_new as f32), 0.5, 0.5) * 0.5,
+                            triangle_hz(midi_hz(n_new as f32)) * 0.3,
+                        ));
+                        tone.ping(false, AttoHash::new(123453123));
+                        id.insert(
+                            n_new,
+                            Some(sequencer.push_relative(
+                                0.0,
+                                f64::INFINITY,
+                                Fade::Power,
+                                0.0,
+                                0.0,
+                                Box::new(tone),
+                            )),
+                        );
                     }
                 }
                 if let MidiMessage::NoteOff { key, vel } = message {
                     let n_stop = key.as_int();
-                    for note in &mut notes {
-                        if let Some(n) = note {
-                            if *n == n_stop {
-                                *note = None;
-                            }
-                        }
+                    if let Some(s_id) = id[&n_stop] {
+                        sequencer.edit_relative(s_id, 0.0, 0.0);
+                        id.insert(n_stop, None);
                     }
                 }
             }
             ticks = track_event.delta.as_int() as f32;
-
-            for (i, n) in notes.iter().enumerate() {
-                if let Some(n) = n
-                    && id[i] == None
-                {
-                    let mut tone =
-                        Net::wrap(Box::new(saw_hz(midi_hz(*n as f32)) * 0.2 >> dcblock()));
-                    tone.ping(false, AttoHash::new(123453123));
-                    id[i] = Some(sequencer.push_relative(
-                        0.0,
-                        f64::INFINITY,
-                        Fade::Smooth,
-                        0.02,
-                        0.2,
-                        Box::new(tone),
-                    ));
-                } else {
-                    if let Some(s_id) = id[i] {
-                        sequencer.edit_relative(s_id, 0.2, 0.2);
-                        id[i] = None;
-                    }
-                }
-            }
         }
         std::thread::sleep(std::time::Duration::from_secs_f32(ticks * tps));
     }
