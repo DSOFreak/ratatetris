@@ -1,9 +1,9 @@
-use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Text;
 use ratatui::widgets::{Paragraph, Widget};
+use ratatui::Frame;
 
 use crate::lmtetris::{self, Tetris};
 

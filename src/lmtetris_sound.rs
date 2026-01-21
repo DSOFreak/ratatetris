@@ -18,6 +18,7 @@ enum MsgSound {
     Smash,
     Tmove,
     Pause,
+    Lockdown,
 }
 
 struct SoundPlayer {}
@@ -48,6 +49,9 @@ impl Sound {
     }
     pub fn tmove(&mut self) {
         self.tx.send(MsgSound::Tmove).unwrap();
+    }
+    pub fn lockdown(&mut self) {
+        self.tx.send(MsgSound::Lockdown).unwrap();
     }
 }
 
@@ -125,12 +129,54 @@ where
         if let Ok(msg) = rx.try_recv() {
             match msg {
                 MsgSound::Combo => {
-                    // c = (c | c) >> reverb_stereo(30.0, 3.0, 0.8) >> join::<U2>();
+                    let combo_sound = (sine_hz(523.25) + sine_hz(659.25) + sine_hz(783.99)) * 0.3;
+                    let combo_id = sequencer.push_relative(
+                        0.0,
+                        0.5,
+                        Fade::Power,
+                        0.0,
+                        0.0,
+                        Box::new(combo_sound),
+                    );
+                    sequencer.edit_relative(combo_id, 0.5, 0.5);
                 }
                 MsgSound::Smash => {
-                    //c = c >> shape_fn(|x| x * 5.0 * x.signum()) >> clip();
+                    let smash_sound =
+                        (zero() >> pluck(220.0, 0.4, 1.0) * 0.5) >> shape_fn(|x| x.tanh());
+                    let smash_id = sequencer.push_relative(
+                        0.0,
+                        0.1,
+                        Fade::Smooth,
+                        0.0,
+                        0.0,
+                        Box::new(smash_sound),
+                    );
+                    sequencer.edit_relative(smash_id, 0.25, 0.0);
                 }
-                MsgSound::Swirl => {}
+                MsgSound::Swirl => {
+                    let swirl_sound = (saw_hz(440.0) + saw_hz(880.0) * 0.5) * 0.2;
+                    let swirl_id = sequencer.push_relative(
+                        0.0,
+                        0.35,
+                        Fade::Power,
+                        0.0,
+                        0.0,
+                        Box::new(swirl_sound),
+                    );
+                    sequencer.edit_relative(swirl_id, 0.25, 0.25);
+                }
+                MsgSound::Lockdown => {
+                    let lockdown_sound = square_hz(220.0) >> lowpass_hz(400.0, 1.0) * 0.15;
+                    let lockdown_id = sequencer.push_relative(
+                        0.0,
+                        0.08,
+                        Fade::Power,
+                        0.0,
+                        0.0,
+                        Box::new(lockdown_sound),
+                    );
+                    sequencer.edit_relative(lockdown_id, 0.0, 0.08);
+                }
                 _ => (),
             }
         }

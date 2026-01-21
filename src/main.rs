@@ -51,7 +51,12 @@ impl App {
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             if !event::poll(timeout)? {
                 terminal.draw(|frame| self.render(frame))?;
-                self.game.step();
+                let (piece_locked, lines_cleared) = self.game.step();
+                if lines_cleared {
+                    self.sound.combo();
+                } else if piece_locked && self.game.is_running() {
+                    self.sound.lockdown();
+                }
                 last_tick = Instant::now();
                 continue;
             }
@@ -70,11 +75,18 @@ impl App {
                         self.sound.swirl();
                     }
                     KeyCode::Down => {
-                        self.game.step();
-                        self.sound.combo();
+                        let (piece_locked, lines_cleared) = self.game.step();
+                        if lines_cleared {
+                            self.sound.combo();
+                        } else if piece_locked && self.game.is_running() {
+                            self.sound.lockdown();
+                        }
                     }
                     KeyCode::Char(' ') => {
-                        self.game.rush();
+                        self.sound.lockdown();
+                        if self.game.rush() {
+                            self.sound.combo();
+                        }
                         self.sound.smash();
                     }
                     KeyCode::Char('p') => {

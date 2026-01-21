@@ -341,8 +341,9 @@ impl Board {
         }
         false
     }
-    fn check_and_remove_lines(&mut self) {
+    fn check_and_remove_lines(&mut self) -> bool {
         let mut c = 0;
+        let mut lines_cleared = false;
         for y in 0..self.height {
             for x in 0..self.width {
                 let p = Point::from(x, y);
@@ -352,9 +353,11 @@ impl Board {
             }
             if c == self.width {
                 self.remove_line_and_drop(y);
+                lines_cleared = true;
             }
             c = 0;
         }
+        lines_cleared
     }
     fn remove_line_and_drop(&mut self, y: i32) {
         for y in (1..=y).rev() {
@@ -430,9 +433,9 @@ impl Tetris {
         tet
     }
 
-    pub fn rush(&mut self) {
+    pub fn rush(&mut self) -> bool {
         if self.state != GameState::Running {
-            return;
+            return false;
         }
         let mut prev = self.tetromino.clone();
         self.tetromino.fall();
@@ -442,24 +445,29 @@ impl Tetris {
         }
         if self.board.fill_tetromino_check_gameover(&prev) {
             self.state = GameState::GameOver;
+            return false;
         }
-        self.board.check_and_remove_lines();
+        let lines_cleared = self.board.check_and_remove_lines();
         self.tetromino = Tetromino::random(self.board.width / 2, 0);
+        lines_cleared
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> (bool, bool) {
         if self.state != GameState::Running {
-            return;
+            return (false, false);
         }
         let prev = self.tetromino.clone();
         self.tetromino.fall();
         if self.tetromino.collides(&self.board) {
             if self.board.fill_tetromino_check_gameover(&prev) {
                 self.state = GameState::GameOver;
+                return (false, false);
             }
-            self.board.check_and_remove_lines();
+            let lines_cleared = self.board.check_and_remove_lines();
             self.tetromino = Tetromino::random(self.board.width / 2, 0);
+            return (true, lines_cleared);
         }
+        (false, false)
     }
 
     pub fn tile_color(&self, x: i32, y: i32) -> Color {
