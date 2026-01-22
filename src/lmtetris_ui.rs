@@ -2,7 +2,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Text;
-use ratatui::widgets::{Paragraph, Widget};
+use ratatui::widgets::{Block, Borders, Paragraph, Widget};
 use ratatui::Frame;
 
 use crate::lmtetris::{self, Tetris};
@@ -16,16 +16,33 @@ impl Ui {
 
         let (msg, style) = (
             vec![
-                "  ⬆   : rotate | \'␣\' : slam     | \'p\' : pause \n".into(),
-                "⬅   ➡ : move   | \'↵\' : new game |\n".into(),
-                "  ⬇   : skip   | \'q\' : exit     |\n".into(),
+                "  ⬆   : rotate | '␣' : slam     | 'p' : pause \n".into(),
+                "⬅   ➡ : move   | '↵' : new game |\n".into(),
+                "  ⬇   : skip   | 'q' : exit     |\n".into(),
             ],
             Style::default().add_modifier(Modifier::RAPID_BLINK),
         );
         let text = Text::from(msg).patch_style(style);
         let help_message = Paragraph::new(text);
         frame.render_widget(help_message, header);
-        frame.render_widget(game, game_area.inner(Margin::default()));
+
+        // Split game area into main board and stats panel
+        let game_layout = Layout::horizontal([Constraint::Min(20), Constraint::Length(20)]);
+        let [board_area, stats_area] = game_area.layout(&game_layout);
+
+        frame.render_widget(game, board_area.inner(Margin::default()));
+
+        // Render stats panel
+        let stats_text = format!(
+            "\n Level: {}\n\n Lines: {}\n\n Score: {}",
+            game.level(),
+            game.lines_cleared(),
+            game.score()
+        );
+        let stats = Paragraph::new(stats_text)
+            .block(Block::default().borders(Borders::ALL).title(" Stats "))
+            .style(Style::default().fg(Color::White));
+        frame.render_widget(stats, stats_area);
     }
 }
 

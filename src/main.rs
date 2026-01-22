@@ -45,9 +45,9 @@ impl App {
     fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         self.game.start();
         self.sound.start();
-        let tick_rate = Duration::from_millis(1000 / 2);
         let mut last_tick = Instant::now();
         loop {
+            let tick_rate = Duration::from_millis(self.game.tick_rate_ms());
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             if !event::poll(timeout)? {
                 terminal.draw(|frame| self.render(frame))?;

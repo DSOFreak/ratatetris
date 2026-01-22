@@ -292,6 +292,9 @@ pub struct Tetris {
     state: GameState,
     board: Board,
     tetromino: Tetromino,
+    score: u32,
+    lines_cleared: u32,
+    level: u32,
 }
 
 #[derive(PartialEq, Eq)]
@@ -341,9 +344,9 @@ impl Board {
         }
         false
     }
-    fn check_and_remove_lines(&mut self) -> bool {
+    fn check_and_remove_lines(&mut self) -> u32 {
         let mut c = 0;
-        let mut lines_cleared = false;
+        let mut lines_count = 0;
         for y in 0..self.height {
             for x in 0..self.width {
                 let p = Point::from(x, y);
@@ -353,11 +356,11 @@ impl Board {
             }
             if c == self.width {
                 self.remove_line_and_drop(y);
-                lines_cleared = true;
+                lines_count += 1;
             }
             c = 0;
         }
-        lines_cleared
+        lines_count
     }
     fn remove_line_and_drop(&mut self, y: i32) {
         for y in (1..=y).rev() {
@@ -379,6 +382,9 @@ impl Tetris {
             state: GameState::Paused,
             board: Board::new(width, height),
             tetromino: Tetromino::random(width / 2, 0),
+            score: 0,
+            lines_cleared: 0,
+            level: 1,
         }
     }
     pub fn dimensions(&self) -> (i32, i32) {
@@ -396,6 +402,49 @@ impl Tetris {
     pub fn is_gameover(&self) -> bool {
         self.state == GameState::GameOver
     }
+
+    pub fn score(&self) -> u32 {
+        self.score
+    }
+
+    pub fn level(&self) -> u32 {
+        self.level
+    }
+
+    pub fn lines_cleared(&self) -> u32 {
+        self.lines_cleared
+    }
+
+    /// Returns tick rate in milliseconds based on current level
+    /// Speed increases as level goes up (tick rate decreases)
+    pub fn tick_rate_ms(&self) -> u64 {
+        // Base tick rate of 500ms at level 1
+        // Each level reduces by ~10%, minimum 100ms
+        let base = 500u64;
+        let reduction = (self.level - 1) as u64 * 40;
+        base.saturating_sub(reduction).max(100)
+    }
+
+    /// Calculate and add score based on lines cleared (classic Tetris scoring)
+    fn add_score(&mut self, lines: u32) {
+        let points = match lines {
+            1 => 100, // Single
+            2 => 300, // Double
+            3 => 500, // Triple
+            4 => 800, // Tetris
+            _ => 0,
+        };
+        self.score += points * self.level;
+    }
+
+    /// Check if player should level up (every 10 lines)
+    fn check_level_up(&mut self) {
+        let new_level = (self.lines_cleared / 10) + 1;
+        if new_level > self.level {
+            self.level = new_level;
+        }
+    }
+
     pub fn move_tet(&mut self, mov: Option<Direction>, rot: Option<Direction>) -> bool {
         if self.state != GameState::Running {
             return false;
@@ -447,9 +496,14 @@ impl Tetris {
             self.state = GameState::GameOver;
             return false;
         }
-        let lines_cleared = self.board.check_and_remove_lines();
+        let lines = self.board.check_and_remove_lines();
+        if lines > 0 {
+            self.lines_cleared += lines;
+            self.add_score(lines);
+            self.check_level_up();
+        }
         self.tetromino = Tetromino::random(self.board.width / 2, 0);
-        lines_cleared
+        lines > 0
     }
 
     pub fn step(&mut self) -> (bool, bool) {
@@ -463,9 +517,14 @@ impl Tetris {
                 self.state = GameState::GameOver;
                 return (false, false);
             }
-            let lines_cleared = self.board.check_and_remove_lines();
+            let lines = self.board.check_and_remove_lines();
+            if lines > 0 {
+                self.lines_cleared += lines;
+                self.add_score(lines);
+                self.check_level_up();
+            }
             self.tetromino = Tetromino::random(self.board.width / 2, 0);
-            return (true, lines_cleared);
+            return (true, lines > 0);
         }
         (false, false)
     }
