@@ -1,8 +1,8 @@
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Margin, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Text;
-use ratatui::widgets::{Block, Borders, Paragraph, Widget};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
 use ratatui::Frame;
 
 use crate::lmtetris::{self, Tetris};
@@ -44,7 +44,33 @@ impl Ui {
             .block(Block::default().borders(Borders::ALL).title(" Stats "))
             .style(Style::default().fg(Color::White));
         frame.render_widget(stats, stats_area);
+
+        if game.is_gameover() {
+            let area = centered_rect(60, 20, board_area);
+            frame.render_widget(Clear, area);
+            let block = Paragraph::new("GAME OVER\n\nPress 'Enter' to restart")
+                .block(Block::default().borders(Borders::ALL).title(" Game Over "))
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD));
+            frame.render_widget(block, area);
+        }
     }
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::vertical([
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+    ])
+    .split(r);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+    ])
+    .split(popup_layout[1])[1]
 }
 
 impl Widget for &Tetris {

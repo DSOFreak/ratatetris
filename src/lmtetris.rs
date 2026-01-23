@@ -618,6 +618,10 @@ impl Tetris {
             self.check_level_up();
         }
         self.tetromino = Tetromino::new(self.bag.next(), self.board.width / 2, 0);
+        if self.tetromino.collides(&self.board) {
+            self.state = GameState::GameOver;
+            return (true, lines);
+        }
         (false, lines)
     }
 
