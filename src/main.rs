@@ -1,12 +1,10 @@
-use crate::lmtetris::Tetris;
-use crate::lmtetris_sound::Sound;
-
-pub mod lmtetris;
-pub mod lmtetris_sound;
-pub mod lmtetris_ui;
+use ratatetris::lmtetris::{self, Tetris};
+use ratatetris::lmtetris_sound::Sound;
+use ratatetris::lmtetris_ui;
 
 use color_eyre::Result;
 use crossterm::event::{self, KeyCode};
+use ratatui::layout::Direction;
 use ratatui::{DefaultTerminal, Frame};
 
 use std::time::{Duration, Instant};
