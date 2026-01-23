@@ -34,10 +34,11 @@ impl Ui {
 
         // Render stats panel
         let stats_text = format!(
-            "\n Level: {}\n\n Lines: {}\n\n Score: {}",
+            "\n Level: {}\n\n Lines: {}\n\n Score: {}\n\n High: {}",
             game.level(),
             game.lines_cleared(),
-            game.score()
+            game.score(),
+            game.high_score()
         );
         let stats = Paragraph::new(stats_text)
             .block(Block::default().borders(Borders::ALL).title(" Stats "))

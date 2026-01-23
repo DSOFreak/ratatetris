@@ -1,6 +1,9 @@
 use rand::seq::SliceRandom;
 use std::cmp::Eq;
+use std::fs;
 use std::ops::Add;
+
+const HIGHSCORE_FILE: &str = "highscore.txt";
 
 const TETS: [[Point; 4]; 7] = [I, J, L, O, S, T, Z];
 
@@ -341,6 +344,7 @@ pub struct Tetris {
     board: Board,
     tetromino: Tetromino,
     score: u32,
+    high_score: u32,
     lines_cleared: u32,
     level: u32,
     bag: Bag,
@@ -430,6 +434,18 @@ impl Board {
 }
 
 impl Tetris {
+    fn load_highscore() -> u32 {
+        if let Ok(content) = fs::read_to_string(HIGHSCORE_FILE) {
+            content.trim().parse().unwrap_or(0)
+        } else {
+            0
+        }
+    }
+
+    fn save_highscore(&self) {
+        let _ = fs::write(HIGHSCORE_FILE, self.high_score.to_string());
+    }
+
     pub fn new(width: i32, height: i32) -> Self {
         let mut bag = Bag::new();
         let tetromino = Tetromino::new(bag.next(), width / 2, 0);
@@ -438,6 +454,7 @@ impl Tetris {
             board: Board::new(width, height),
             tetromino,
             score: 0,
+            high_score: Tetris::load_highscore(),
             lines_cleared: 0,
             level: 1,
             bag,
@@ -461,6 +478,10 @@ impl Tetris {
 
     pub fn score(&self) -> u32 {
         self.score
+    }
+
+    pub fn high_score(&self) -> u32 {
+        self.high_score
     }
 
     pub fn level(&self) -> u32 {
@@ -491,6 +512,10 @@ impl Tetris {
             _ => 0,
         };
         self.score += points * self.level;
+        if self.score > self.high_score {
+            self.high_score = self.score;
+            self.save_highscore();
+        }
     }
 
     /// Check if player should level up (every 10 lines)
