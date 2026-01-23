@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use std::cmp::Eq;
 use std::ops::Add;
 
@@ -150,6 +151,39 @@ impl TetrominoVariant {
     }
 }
 
+/// 7-Bag Randomizer: shuffles all 7 tetrominos, deals them out, then reshuffles
+struct Bag {
+    pieces: Vec<TetrominoVariant>,
+}
+
+impl Bag {
+    fn new() -> Self {
+        let mut bag = Bag { pieces: Vec::new() };
+        bag.refill();
+        bag
+    }
+
+    fn refill(&mut self) {
+        self.pieces = vec![
+            TetrominoVariant::I,
+            TetrominoVariant::J,
+            TetrominoVariant::L,
+            TetrominoVariant::O,
+            TetrominoVariant::S,
+            TetrominoVariant::T,
+            TetrominoVariant::Z,
+        ];
+        self.pieces.shuffle(&mut rand::rng());
+    }
+
+    fn next(&mut self) -> TetrominoVariant {
+        if self.pieces.is_empty() {
+            self.refill();
+        }
+        self.pieces.pop().unwrap()
+    }
+}
+
 #[derive(Default, Clone, PartialEq, Eq)]
 enum Rotation {
     #[default]
@@ -209,6 +243,16 @@ pub struct Tetromino {
 impl Tetromino {
     fn random(x: i32, y: i32) -> Self {
         let variant = TetrominoVariant::random();
+        Self {
+            variant,
+            center: Point { x, y },
+            rotation: Rotation::Deg0,
+            color: Color {
+                c: 9 + variant.to_index() as u8,
+            },
+        }
+    }
+    fn new(variant: TetrominoVariant, x: i32, y: i32) -> Self {
         Self {
             variant,
             center: Point { x, y },
@@ -295,6 +339,7 @@ pub struct Tetris {
     score: u32,
     lines_cleared: u32,
     level: u32,
+    bag: Bag,
 }
 
 #[derive(PartialEq, Eq)]
@@ -331,6 +376,40 @@ impl Board {
     fn get_tile(&self, p: Point) -> &Tile {
         &self.tiles[self.p2i(&p)]
     }
+    fn is_line_full(&self, y: i32) -> bool {
+        (0..self.width).all(|x| self.tiles[self.p2i(&Point::from(x, y))].filled)
+    }
+    fn clear_line(&mut self, y: i32) {
+        // Drop all rows above down by one
+        for row in (1..=y).rev() {
+            let src_start = ((row - 1) * self.width) as usize;
+            let dst_start = (row * self.width) as usize;
+            for x in 0..self.width as usize {
+                self.tiles[dst_start + x] = self.tiles[src_start + x].clone();
+            }
+        }
+        // Clear top row
+        for x in 0..self.width as usize {
+            self.tiles[x] = Tile {
+                filled: false,
+                color: Color { c: 0 },
+            };
+        }
+    }
+    fn check_and_clear_lines(&mut self) -> u32 {
+        let mut lines_count = 0;
+        let mut y = self.height - 1;
+        while y >= 0 {
+            if self.is_line_full(y) {
+                self.clear_line(y);
+                lines_count += 1;
+                // Don't decrement y - check same row again since rows dropped
+            } else {
+                y -= 1;
+            }
+        }
+        lines_count
+    }
     fn fill_tetromino_check_gameover(&mut self, tet: &Tetromino) -> bool {
         for p in &tet.points() {
             let i = self.p2i(p);
@@ -344,47 +423,20 @@ impl Board {
         }
         false
     }
-    fn check_and_remove_lines(&mut self) -> u32 {
-        let mut c = 0;
-        let mut lines_count = 0;
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let p = Point::from(x, y);
-                if self.tiles[self.p2i(&p)].filled {
-                    c += 1;
-                }
-            }
-            if c == self.width {
-                self.remove_line_and_drop(y);
-                lines_count += 1;
-            }
-            c = 0;
-        }
-        lines_count
-    }
-    fn remove_line_and_drop(&mut self, y: i32) {
-        for y in (1..=y).rev() {
-            for x in 0..self.width {
-                let i = self.p2i(&Point::from(x, y));
-                let i_top = self.p2i(&Point::from(x, y - 1));
-                let tile_top = self.tiles[i_top].clone();
-                let tile = &mut self.tiles[i];
-                tile.filled = tile_top.filled;
-                tile.color = tile_top.color;
-            }
-        }
-    }
 }
 
 impl Tetris {
     pub fn new(width: i32, height: i32) -> Self {
+        let mut bag = Bag::new();
+        let tetromino = Tetromino::new(bag.next(), width / 2, 0);
         Tetris {
             state: GameState::Paused,
             board: Board::new(width, height),
-            tetromino: Tetromino::random(width / 2, 0),
+            tetromino,
             score: 0,
             lines_cleared: 0,
             level: 1,
+            bag,
         }
     }
     pub fn dimensions(&self) -> (i32, i32) {
@@ -482,6 +534,23 @@ impl Tetris {
         tet
     }
 
+    /// Lock the current piece, clear lines, update score, and spawn new piece.
+    /// Returns (is_gameover, lines_cleared_count)
+    fn lock_piece(&mut self, piece: &Tetromino) -> (bool, u32) {
+        if self.board.fill_tetromino_check_gameover(piece) {
+            self.state = GameState::GameOver;
+            return (true, 0);
+        }
+        let lines = self.board.check_and_clear_lines();
+        if lines > 0 {
+            self.lines_cleared += lines;
+            self.add_score(lines);
+            self.check_level_up();
+        }
+        self.tetromino = Tetromino::new(self.bag.next(), self.board.width / 2, 0);
+        (false, lines)
+    }
+
     pub fn rush(&mut self) -> bool {
         if self.state != GameState::Running {
             return false;
@@ -492,18 +561,8 @@ impl Tetris {
             self.tetromino.fall();
             prev.fall();
         }
-        if self.board.fill_tetromino_check_gameover(&prev) {
-            self.state = GameState::GameOver;
-            return false;
-        }
-        let lines = self.board.check_and_remove_lines();
-        if lines > 0 {
-            self.lines_cleared += lines;
-            self.add_score(lines);
-            self.check_level_up();
-        }
-        self.tetromino = Tetromino::random(self.board.width / 2, 0);
-        lines > 0
+        let (gameover, lines) = self.lock_piece(&prev);
+        !gameover && lines > 0
     }
 
     pub fn step(&mut self) -> (bool, bool) {
@@ -513,17 +572,10 @@ impl Tetris {
         let prev = self.tetromino.clone();
         self.tetromino.fall();
         if self.tetromino.collides(&self.board) {
-            if self.board.fill_tetromino_check_gameover(&prev) {
-                self.state = GameState::GameOver;
+            let (gameover, lines) = self.lock_piece(&prev);
+            if gameover {
                 return (false, false);
             }
-            let lines = self.board.check_and_remove_lines();
-            if lines > 0 {
-                self.lines_cleared += lines;
-                self.add_score(lines);
-                self.check_level_up();
-            }
-            self.tetromino = Tetromino::random(self.board.width / 2, 0);
             return (true, lines > 0);
         }
         (false, false)
