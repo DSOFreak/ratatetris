@@ -316,6 +316,10 @@ impl Tetromino {
         self.center.mov(dir);
         true
     }
+    fn offset(&mut self, dx: i32, dy: i32) {
+        self.center.x += dx;
+        self.center.y += dy;
+    }
 }
 
 #[derive(Debug)]
@@ -505,16 +509,57 @@ impl Tetris {
 
         if let Some(r) = rot {
             tet_next.rotate(&r);
+            if tet_next.collides(&self.board) {
+                // Simple Wall Kick Logic
+                // Try shifting right, left, up (floor kick), and 2 steps for I-piece
+                let kicks = [(1, 0), (-1, 0), (0, -1), (2, 0), (-2, 0)];
+                let mut success = false;
+                for (dx, dy) in kicks {
+                    let mut test_tet = tet_next.clone();
+                    test_tet.offset(dx, dy);
+                    if !test_tet.collides(&self.board) {
+                        tet_next = test_tet;
+                        success = true;
+                        break;
+                    }
+                }
+                if !success {
+                    return false;
+                }
+            }
         }
-        if tet_next.collides(&self.board) {
-            return false;
-        }
+        // No need to check collides here again because we either didn't rotate,
+        // rotated successfully without kick, or kicked successfully.
+        // But we DO need to check if we are applying movement NEXT.
 
         if let Some(m) = mov {
             tet_next.mov(&m);
-        }
-        if tet_next.collides(&self.board) {
-            return false;
+            // If movement causes collision, we revert ONLY the movement, but keep rotation?
+            // Usually rotate and move are separate events.
+            // But this function handles both.
+            // If rotation succeeded (maybe with kick), tet_next is rotated.
+            // Then we apply move.
+            if tet_next.collides(&self.board) {
+                // If move collides, we should probably return false?
+                // Or should we just ignore the move but keep rotation?
+                // The UI calls `rotate_right` (only rot) or `move_left` (only mov).
+                // It rarely calls both.
+                // But if it did, standard behavior is atomic or sequential.
+                // Given the signature `Option<Direction>`, it allows both.
+                // If move fails, we likely want to keep the rotation if it succeeded.
+                // But `return false` implies the whole operation failed.
+                // Let's assume if move fails, we fall back to just rotated state?
+                // Or just fail the whole thing.
+                // Given existing code:
+                /*
+                if tet_next.collides(&self.board) {
+                     return false;
+                }
+                */
+                // It returns false. So if I pass (Some(Move), Some(Rot)), and Rot succeeds but Move fails,
+                // the whole thing is cancelled. That seems acceptable.
+                return false;
+            }
         }
 
         self.tetromino = tet_next;
